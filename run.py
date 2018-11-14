@@ -1,32 +1,57 @@
 from mtgproxy import api
+from mtgproxy import deck
+from mtgproxy import image
+from time import sleep
+import multiprocessing
 
-mtg_io = api.Magic_IO()
-scryfall = api.Scryfall()
 
+def worker(process_name, tasks, results):
+    print('[%s] evaluation routine starts' % process_name)
 
-card_list = mtg_io.get_card_list('"Wurmcoil Engine"')
-#print(card_list)
-newest_set = mtg_io.get_newest_set(card_list)
-oldest_set = mtg_io.get_oldest_set(card_list)
-#print(dir(card_list[0]))
-#print(card_list[0].release_date)
-#for i, card in enumerate(card_list):
-#    print(f'{i}: {card.release_date}')
+    while True:
+        new_value = deck_list.get()
+        if new_value < 0:
+            print('[%s] evaluation routine quits' % process_name)
+            results.put(-1)
+            break
+        else:
+            image(new_value)
+            sleep(0.10)
+            print('[%s] Processing: %s' %(process_name, new_value))
+    return
 
-#for p in card_list:
-#    print(p.set)
+def read_cube(loc):
+    f = open(loc, 'r')
+    e = open('error.txt', 'w')
+    lines = f.readlines()
+    for line in lines:
+        print(line.rstrip())
+        try:
+            url = run_image(line.rstrip(), api.get_newest_set)
+        except:
+            e.write('run_image: ' + line.rstrip() + '\n')
+            continue
+        try:
+            img = api.download_image(url)
+        except:
+            e.write('download_image: ' + line.rstrip() + '\n')
+            continue
+        try:
+            image.process_image(img, line)
+        except:
+            e.write('process_image: ' + line.rstrip() + '\n')
+            continue
+        sleep(0.1)
+    f.close()
+    e.close()
 
-#print(card_list)
-#print('Newest set: \t' + newest_set.image_url)
-#print('Oldest set: \t' + oldest_set.image_url)
+def run_image(card, version):
+    card_list = api.get_card_list('"' + card + '"')
+    card_info = version(card_list)
+    card_set = api.get_set(card_info)
+    card_num = api.get_number(card_info)
+    this_image = api.get_image_url(card_num, card_set)
+    return this_image
 
-#BASE_URL = 'https://img.scryfall.com/cards/png/en/'
-card_set = mtg_io.get_set(oldest_set)
-card_num = mtg_io.get_number(oldest_set)
-#print(BASE_URL + card_set.lower() + '/' + card_num + '.png')
+read_cube('vintage_cube.txt')
 
-print(scryfall.get_image(card_num, card_set))
-
-#print(newest_set.name)
-#https://img.scryfall.com/cards/png/en/mps/28.png?1517813031
-#https://img.scryfall.com/cards/png/en/MPS/28.png
